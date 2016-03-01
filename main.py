@@ -196,10 +196,13 @@ def setrange():
     daterange = request.form.get('daterange')
     starttime = request.form.get('starttime')
     endtime = request.form.get('endtime')
+    name = request.form.get('name')
     
     app.logger.debug(starttime)
     app.logger.debug(endtime)
+    app.logger.debug(name)
     
+    flask.session['name'] = name
     flask.session['daterange'] = daterange
     flask.session['text_beg_time'] = starttime
     flask.session['text_end_time'] = endtime
@@ -233,6 +236,38 @@ def calcBusyFreeTimes():
     find_busy() #a list of dicts. Finds busy_list
     find_free() #a list of dicts. Finds free_list
     return "nothing"
+    
+@app.route('/EliminateCandidate')  
+def eliminateCandidate():
+    selected_candidates = request.args.getlist("selected[]")
+    flask.session['selected_candidates'] = selected_candidates
+    app.logger.debug(flask.session['selected_candidates'])
+    deleteCandidatesFromFree()
+    return "nothing"
+
+def deleteCandidatesFromFree():
+    to_delete = flask.session['selected_candidates']
+    app.logger.debug(to_delete)
+    revised_free = []
+    for apt in flask.session['free_list']:
+        if apt['id'] not in to_delete:
+            revised_free.append(apt)
+    
+    flask.session['revised_free'] = revised_free
+    app.logger.debug(flask.session['revised_free'])
+
+@app.route('/finish')
+def finish():
+    #give free list to be displayed
+    #store start date, end date, start time, end time, responders:[name], free_times = [free_list] in database AND grab
+    #the object id (on stack over flow saw how to do this) and save the object id in flask session object 
+    #now render index.html cuz now have revised_free and proposal_id
+    flask.session['display_revised_free'] = createDisplayAptList(flask.session['revised_free'])
+    return render_template('index.html')
+
+    
+        
+
 
 @app.route('/displayBusyFreeTimes')
 def displayBusyFreeTimes():
@@ -265,13 +300,19 @@ def createDisplayAptList(apt_list):
     This function takes in a list of appointments and returns a list of strings representing
     the appointments, where the strings are suited for displaying the appointments to the user. 
     """
-    display_apt_list = []
+    display_apt_list = [] #list of dicts
     for apt in apt_list:
+        info = {}
+        if apt['desc'] == "Available":
+            info['id'] = apt['id']
+        info['desc'] = apt['desc']
         apt_str = ""
         apt_str = apt_str + apt['desc'] + ": "
         apt_str = apt_str + convertDisplayDateTime(apt['begin']) + " - "
         apt_str = apt_str + convertDisplayDateTime(apt['end']) 
-        display_apt_list.append(apt_str)
+        info['display'] = apt_str
+        display_apt_list.append(info)
+        
     return display_apt_list
         
             
@@ -360,7 +401,14 @@ def find_free():
     span_end_time = arrow.get(flask.session['end_time'])
     free_agenda = busy_agenda.complementTimeSpan(span_begin_date, span_end_date, span_begin_time, span_end_time)
     
-    flask.session['free_list'] = free_agenda.to_list()
+    free_list = free_agenda.to_list()
+    i = 0
+    for apt_dict in free_list:
+        apt_dict['id'] = str(i)
+        i= i+1
+    
+    
+    flask.session['free_list'] = free_list
     app.logger.debug("HERE IS FREE_LIST")
     app.logger.debug(flask.session['free_list'])
 

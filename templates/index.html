@@ -52,52 +52,60 @@ crossorigin="anonymous">
 <div class="container">
 
 <h1>Meeting Scheduler</h1>
-<h1>Busy times</h1>
+
+<form action="/setrange" method="post">
+<p><u>STEP 1: Proposer's Name</u></p>
+<div class="row">
+    <div class="col-md-3">
+        <p>Please enter your name:</p>
+    </div>
+    <div class="col-md-3">
+        <input type="text" name="name" {% if session.name is defined %} value="{{session.name}}" {% endif %}/>
+    </div>
+</div>
 
 
-{% with messages = get_flashed_messages() %}
-  {% if messages %}
-    <ul class=flashes>
-    {% for message in messages %}
-      <li>{{ message }}</li>
-    {% endfor %}
-    </ul>
-  {% endif %}
-{% endwith %}
+<p><u>STEP 2: Date Range</u></p>
 
-<h2>Date range</h2>
-<p><b>Please enter a date range.</b></p>
-  <form action="/setrange" method="post">
-  <input type="text" name="daterange" size="12"
-    {% if session.daterange is defined %}
+<div class="row">
+    <div class="col-md-3">
+        <p>Please enter a date range:</p>
+    </div>
+    <div class="col-md-6">
+        <input type="text" name="daterange" size="12"
+        {% if session.daterange is defined %}
          value="{{session.daterange}}"
-    {% endif %}
-     class="pull-down"
-     style="background: #fff; cursor: pointer; padding: 5px 10px;
-     border: 1px solid #ccc; width: 12em" >
-  <script type="text/javascript">
-  $(function() {
-  $('input[name="daterange"]').daterangepicker(
-    {    ranges: {
-           'Today': [moment(), moment()],
-           'Tomorrow':[moment().add(1, 'days'),
+        {% endif %}
+        class="pull-down"
+        style="background: #fff; cursor: pointer; padding: 5px 10px;
+        border: 1px solid #ccc; width: 12em" >
+        <script type="text/javascript">
+        $(function() {
+        $('input[name="daterange"]').daterangepicker(
+            {    ranges: {
+                'Today': [moment(), moment()],
+                'Tomorrow':[moment().add(1, 'days'),
                        moment().add(1, 'days')], 
-           'This week':[moment(), moment().endOf('week')],
-           'Next week':[moment().add(7, 'days').startOf('week'),
+                'This week':[moment(), moment().endOf('week')],
+                'Next week':[moment().add(7, 'days').startOf('week'),
                         moment().add(7, 'days').endOf('week')],
-           'This month':[moment(), moment().endOf('month')],
-           'Within two weeks':[moment(),moment().add(15, 'days')]
-        }}
-       );
-    });
-  </script>
+                'This month':[moment(), moment().endOf('month')],
+                'Within two weeks':[moment(),moment().add(15, 'days')]
+                }}
+            );
+            });
+        </script>
+    </div>
+</div>
 
+<p><u>STEP 3: Time Range</u></p>
 
-
-<h2>Time range</h2>
-<p><b>Please enter a time range. You may use your arrow buttons to choose an hour, minutes, and AM or PM.</b></p>
-<p>Start of Time Range:</p>
-<div class="input-group bootstrap-timepicker timepicker">
+<div class="row">
+    <div class="col-md-3">
+        <p>Start of Time Range:</p>
+    </div>
+    <div class="col-md-2">
+        <div class="input-group bootstrap-timepicker timepicker">
     <input id="timepicker1" name="starttime" type="text" class="form-control input-small" 
     {% if session.text_beg_time is defined %}
          value="{{session.text_beg_time}}"
@@ -106,10 +114,16 @@ crossorigin="anonymous">
  <script type="text/javascript">
         $('#timepicker1').timepicker();
 </script>
+    </div>
+</div>
 
 
-<p>End of Time Range:</p>
-<div class="input-group bootstrap-timepicker timepicker">
+<div class="row">
+    <div class="col-md-3">
+        <p>End of Time Range:</p>
+    </div>
+    <div class="col-md-2">
+        <div class="input-group bootstrap-timepicker timepicker">
     <input id="timepicker2" name="endtime" type="text" class="form-control input-small"  
     {% if session.text_end_time is defined %}
          value="{{session.text_end_time}}"
@@ -118,43 +132,66 @@ crossorigin="anonymous">
  <script type="text/javascript">
         $('#timepicker2').timepicker();
 </script>
-  
-  
+    </div>
+</div>
 <br /><input type="submit" value="Continue To Choose Calendars" />
 </form>
 
 {% if session.calendars is defined  %}
-<h2>Please Select The Calendars To Be Used</h2>
-  <div class="row">
+<p></p>
+<p><u>STEP 4: Calendars</u></p>
+<p>Please select the calendars to be used:</p>
+  <div class="col">
   {% for cal in session.calendars if cal.selected %}
-          <div class="col-md-4">
-	   <input id="{{cal.id}}" type="checkbox" {% if cal.id in session.selected_cal|safe %} checked {% endif %} > {{ cal.summary }}
+          <div class="row-md-4">
+	   <input id="{{cal.id}}" name="check1" type="checkbox" {% if cal.id in session.selected_cal|safe %} checked {% endif %} > {{ cal.summary }}
           </div>
          {% if loop.index is divisibleby 3 %}
-          </div> <div class="row">
+          </div> <div class="col">
          {% endif %}
   {% endfor %}
   </div>
-
-
 <button onclick="CalcBusyFreeTimes()">Calculate Busy & Free Times</button>
-
 {% endif %}
 
 
 
 {% if session.display_free_busy is defined %}
-<h2>Blocked and Available Times:</h2>
-    {% for apt in session.display_free_busy %}
-    <div class="row">
-      <div class="col-md-6">  
-        {{apt}}
-      </div>
-    </div>
+<p></p>
+<p><u>STEP 5: Optional Elimination of Candidate Meeting Times</u></p>
+<p>Please select the candidate times, if any, that you would like to eliminate:</p>
+    {% for apt_dict in session.display_free_busy %}
+        {% if apt_dict.desc == "Available" %}
+        <div class="row">
+            <div class="col-md-6">  
+                <input id="{{apt_dict.id}}" name="check2" type="checkbox" {% if apt_dict.id in session.selected_candidates|safe %} checked {% endif %} > {{ apt_dict.display }}
+            </div>
+        </div>
+        {% else %}
+        <div class="row">
+            <div class="col-md-6">  
+                {{ apt_dict.display }}
+            </div>
+        </div>
+        {% endif %}  
     {% endfor %}
+    
+<button onclick="EliminateCandidate()">Submit</button>
 {% endif %}
 
 
+{% if session.display_revised_free is defined %}
+<p></p>
+<p><u>STEP 6: Finished</u></p>
+<p>Your Finalized Available Meeting Times:</p>
+    {% for apt in session.display_revised_free %}
+    <div class="row">
+        <div class="col">  
+            {{ apt.display }}
+        </div>
+    </div>
+    {% endfor %}
+{% endif %}
 
     
 
@@ -167,7 +204,7 @@ $SCRIPT_ROOT = {{ request.script_root|tojson|safe }};
 
 function CalcBusyFreeTimes(){
     selected_cal = [];
-    $('input[type=checkbox]').each(function () {
+    $('input[name=check1]').each(function () {
        if (this.checked)
        {
             console.log(this.id);
@@ -183,6 +220,29 @@ function CalcBusyFreeTimes(){
     data: {selected: selected_cal},
     complete: function(){ 
             location.assign($SCRIPT_ROOT + '/displayBusyFreeTimes'); }
+    });
+}
+
+
+
+function EliminateCandidate(){
+    selected_candid = [];
+    $('input[name=check2]').each(function () {
+       if (this.checked)
+       {
+            console.log(this.id);
+            selected_candid.push(this.id)
+       }
+  });
+  
+  console.log(selected_candid);
+  
+    $.ajax({
+    dataType: "json",
+    url: $SCRIPT_ROOT + '/EliminateCandidate',
+    data: {selected: selected_candid},
+    complete: function(){ 
+            location.assign($SCRIPT_ROOT + '/finish'); }
     });
 }
 
