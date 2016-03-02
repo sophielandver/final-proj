@@ -21,12 +21,27 @@ import httplib2   # used in oauth2 flow
 from apiclient import discovery
 
 from agenda import *
+# Mongo database
+from pymongo import MongoClient
+from bson.objectid import ObjectId
+
 
 ###
 # Globals
 ###
 import CONFIG
 app = flask.Flask(__name__)
+
+
+
+try: 
+    dbclient = MongoClient(CONFIG.MONGO_URL)
+    db = dbclient.meetme #meetme is name of database that you created 
+    collection = db.meet  #dated is name of collection. you are creating this collection right now
+
+except:
+    print("Failure opening database.  Is Mongo running? Correct password?")
+    sys.exit(1)
 
 SCOPES = 'https://www.googleapis.com/auth/calendar.readonly'
 CLIENT_SECRET_FILE = CONFIG.GOOGLE_LICENSE_KEY  ## You'll need this
@@ -45,6 +60,21 @@ def index():
   if 'begin_date' not in flask.session:
     init_session_values()
   return render_template('index.html')
+  
+  
+@app.route("/participant/<proposal_id>")
+def participant(proposal_id):
+    #assuming that there is a new session now
+    flask.session['proposal_id'] = proposal_id
+    flask.session['is_participant'] = "True"
+    for record in collection.find( { "type": "proposal", "_id": flask.session['proposal_id'] } ):
+        flask.session['begin_date'] = record['start_date']
+        flask.session['end_date'] = record['end_date']
+        flask.session['begin_time'] = record['start_time']
+        flask.session['end_time'] = record['end_time']
+    return render_template('participant.html')
+    
+
 
 @app.route("/choose")
 def choose():
@@ -61,7 +91,11 @@ def choose():
     gcal_service = get_gcal_service(credentials)
     app.logger.debug("Returned from get_gcal_service")
     flask.session['calendars'] = list_calendars(gcal_service)
-    return render_template('index.html')
+    
+    if flask.session['is_participant'] == "True":
+        return render_template('participant.html')
+    else:
+        return render_template('index.html')
 
 ####
 #
@@ -179,6 +213,12 @@ def oauth2callback():
 #
 #####
 
+@app.route('/setParticName', methods=['POST'])
+def setParticName():
+    name = request.form.get('name')
+    flask.session['name'] = name
+    return flask.redirect(flask.url_for("choose"))
+
 @app.route('/setrange', methods=['POST'])
 def setrange():
     """
@@ -211,6 +251,7 @@ def setrange():
     flask.session['end_date'] = interpret_date(daterange_parts[2])
     flask.session['begin_time'] = interpret_time(starttime)
     flask.session['end_time'] = interpret_time(endtime)
+    flask.session['is_participant'] = "False"
     
     app.logger.debug("Setrange parsed {} - {}  dates as {} - {}".format(
       daterange_parts[0], daterange_parts[1], 
@@ -242,7 +283,11 @@ def eliminateCandidate():
     selected_candidates = request.args.getlist("selected[]")
     flask.session['selected_candidates'] = selected_candidates
     app.logger.debug(flask.session['selected_candidates'])
-    deleteCandidatesFromFree()
+    deleteCandidatesFromFree() #now we have revised_free
+    if flask.session['is_participant'] == "True":
+        storeParticipantInfoInDB()
+    else:
+        storeProposerInfoInDB()     
     return "nothing"
 
 def deleteCandidatesFromFree():
@@ -256,18 +301,57 @@ def deleteCandidatesFromFree():
     flask.session['revised_free'] = revised_free
     app.logger.debug(flask.session['revised_free'])
 
-@app.route('/finish')
-def finish():
-    #give free list to be displayed
+def storeParticipantInfoInDB():
+    #store name of particpant and free times 
+    app.logger.debug(type(flask.session['proposal_id']))
+    collection.update({ "type": "proposal", "_id":flask.session['proposal_id'] }, {'$push': {'responders':flask.session['name']}})
+    collection.update({ "type": "proposal", "_id":flask.session['proposal_id'] }, {'$push': {'free_times':flask.session['revised_free']}})
+ 
+    for record in collection.find():
+        app.logger.debug(record)
+    
+def storeProposerInfoInDB():
     #store start date, end date, start time, end time, responders:[name], free_times = [free_list] in database AND grab
-    #the object id (on stack over flow saw how to do this) and save the object id in flask session object 
+    #the object id (on stack over flow saw how to do this) and save the object id in flask session object
+    #collection.remove({})
+    responders = []
+    responders.append(flask.session['name'])
+    free_times = []
+    free_times.append(flask.session['revised_free'])
+    proposal_id = str(ObjectId())
+    flask.session['proposal_id'] = proposal_id
+    record = { "type": "proposal",
+           "_id": proposal_id,
+           "start_date": flask.session['begin_date'], 
+           "end_date": flask.session['end_date'],
+           "start_time": flask.session['begin_time'],
+           "end_time": flask.session['end_time'],
+           "responders": responders,
+           "free_times": free_times
+          }
+    collection.insert(record) 
+    
+    for record in collection.find():
+        app.logger.debug(record)
+
+@app.route('/participantFinish')
+def participantFinish():
+    flask.session['display_revised_free'] = createDisplayAptList(flask.session['revised_free'])
+    return render_template('participant.html')
+
+@app.route('/proposerFinish')
+def proposerFinish():
+    #give free list to be displayed 
     #now render index.html cuz now have revised_free and proposal_id
     flask.session['display_revised_free'] = createDisplayAptList(flask.session['revised_free'])
+    if CONFIG.PORT == 5000: #on my machine
+        url = "localhost:5000/participant/" + flask.session['proposal_id']
+    if CONFIG.PORT == 8342: #on ix
+        url = "ix.cs.uoregon.edu:8342/participant/" + flask.session['proposal_id']
+    flask.session['participant_url'] = url
     return render_template('index.html')
 
     
-        
-
 
 @app.route('/displayBusyFreeTimes')
 def displayBusyFreeTimes():
@@ -277,7 +361,11 @@ def displayBusyFreeTimes():
     the user in sorted order by begin date/time.
     """
     createDisplayFreeBusyTimes()
-    return render_template('index.html')
+    if flask.session['is_participant'] == "True":
+        return render_template('participant.html')
+    else:
+        return render_template('index.html')
+
     
 
 def createDisplayFreeBusyTimes():

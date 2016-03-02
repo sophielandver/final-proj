@@ -20,25 +20,11 @@ src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/js/bootstrap.min.js"
 integrity="sha384-0mSbJDEHialfmuBBQP6A4Qrprq5OVfW37PRR3j5ELqxss1yVqOtnepnHVP9aJ7xS"
 crossorigin="anonymous">
 </script>
-<link type="text/css" href="static/js/node_modules/bootstrap-timepicker/css/bootstrap-timepicker.min.css" />
-<script type="text/javascript" src="static/js/node_modules/bootstrap-timepicker/js/bootstrap-timepicker.min.js"></script>
-
-
-<script type="text/javascript" 
-    src="//cdn.jsdelivr.net/momentjs/latest/moment.min.js"></script>
     
 <link rel="stylesheet" type="text/css"
      href="//cdn.jsdelivr.net/bootstrap/latest/css/bootstrap.css"
 />
     
-<script type="text/javascript" 
-    src="//cdn.jsdelivr.net/bootstrap.daterangepicker/2/daterangepicker.js"></script>
-
-
-
-<link rel="stylesheet" type="text/css"
- href="/static/js/node_modules/bootstrap-daterangepicker/daterangepicker.css"
-/>
 
 <link rel="stylesheet" type="text/css"
     href="/static/css/busy.css"
@@ -52,9 +38,12 @@ crossorigin="anonymous">
 <div class="container">
 
 <h1>Meeting Scheduler</h1>
+<button onclick="Status()">View Current Meeting Status</button>
 
-<form action="/setrange" method="post">
-<p><b><u>STEP 1: Proposer's Name</u></b></p>
+
+<form action="/setParticName" method="post">
+<br>
+<p><b><u>STEP 1: Participant's Name</u></b></p>
 <div class="row">
     <div class="col-md-3">
         <p>Please enter your name:</p>
@@ -64,86 +53,15 @@ crossorigin="anonymous">
     </div>
 </div>
 
-
-<p><b><u>STEP 2: Date Range</u></b></p>
-
-<div class="row">
-    <div class="col-md-3">
-        <p>Please enter a date range:</p>
-    </div>
-    <div class="col-md-6">
-        <input type="text" name="daterange" size="12"
-        {% if session.daterange is defined %}
-         value="{{session.daterange}}"
-        {% endif %}
-        class="pull-down"
-        style="background: #fff; cursor: pointer; padding: 5px 10px;
-        border: 1px solid #ccc; width: 12em" >
-        <script type="text/javascript">
-        $(function() {
-        $('input[name="daterange"]').daterangepicker(
-            {    ranges: {
-                'Today': [moment(), moment()],
-                'Tomorrow':[moment().add(1, 'days'),
-                       moment().add(1, 'days')], 
-                'This week':[moment(), moment().endOf('week')],
-                'Next week':[moment().add(7, 'days').startOf('week'),
-                        moment().add(7, 'days').endOf('week')],
-                'This month':[moment(), moment().endOf('month')],
-                'Within two weeks':[moment(),moment().add(15, 'days')]
-                }}
-            );
-            });
-        </script>
-    </div>
-</div>
-
-<p><b><u>STEP 3: Time Range</u></b></p>
-
-<div class="row">
-    <div class="col-md-3">
-        <p>Start of Time Range:</p>
-    </div>
-    <div class="col-md-2">
-        <div class="input-group bootstrap-timepicker timepicker">
-    <input id="timepicker1" name="starttime" type="text" class="form-control input-small" 
-    {% if session.text_beg_time is defined %}
-         value="{{session.text_beg_time}}"
-    {% endif %}>
-</div>
- <script type="text/javascript">
-        $('#timepicker1').timepicker();
-</script>
-    </div>
-</div>
-
-
-<div class="row">
-    <div class="col-md-3">
-        <p>End of Time Range:</p>
-    </div>
-    <div class="col-md-2">
-        <div class="input-group bootstrap-timepicker timepicker">
-    <input id="timepicker2" name="endtime" type="text" class="form-control input-small"  
-    {% if session.text_end_time is defined %}
-         value="{{session.text_end_time}}"
-    {% endif %}>
-</div>
- <script type="text/javascript">
-        $('#timepicker2').timepicker();
-</script>
-    </div>
-</div>
 <br /><input type="submit" value="Continue To Choose Calendars" />
 </form>
 
 
 
 
-
 {% if session.calendars is defined  %}
 <p></p>
-<p><b><u>STEP 4: Calendars</u></b></p>
+<p><b><u>STEP 2: Calendars</u></b></p>
 <p>Please select the calendars to be used:</p>
   <div class="col">
   {% for cal in session.calendars if cal.selected %}
@@ -162,7 +80,7 @@ crossorigin="anonymous">
 
 {% if session.display_free_busy is defined %}
 <p></p>
-<p><b><u>STEP 5: Optional Elimination of Candidate Meeting Times</u></b></p>
+<p><b><u>STEP 3: Optional Elimination of Candidate Meeting Times</u></b></p>
 <p>Please select the candidate times, if any, that you would like to eliminate:</p>
     {% for apt_dict in session.display_free_busy %}
         {% if apt_dict.desc == "Available" %}
@@ -186,7 +104,7 @@ crossorigin="anonymous">
 
 {% if session.display_revised_free is defined %}
 <p></p>
-<p><b><u>STEP 6: Finished</u></b></p>
+<p><b><u>STEP 4: Finished</u></b></p>
 <p>Your Finalized Available Meeting Times:</p>
     {% for apt in session.display_revised_free %}
     <div class="row">
@@ -197,11 +115,8 @@ crossorigin="anonymous">
     {% endfor %}
 <br>
 <p>Your finalized available meeting times have been successfully submitted.</p>
-<p>Please copy and paste the following URL into an email and send it to the people<br>
-whom you want at the meeting so that their available times can be collected as well:<br>
-{{session.participant_url}} <br>
-<p>To view the current status of the meeting, go to the provided URL and click the<br>
-"View Current Meeting Status" button. Thank You!</p>
+<p>You can view the current status of the meeting and the responders so far by <br>
+by clicking the "View Current Meeting Status" button above. Thank You!</p>
 {% endif %}
 
     
@@ -253,7 +168,7 @@ function EliminateCandidate(){
     url: $SCRIPT_ROOT + '/EliminateCandidate',
     data: {selected: selected_candid},
     complete: function(){ 
-            location.assign($SCRIPT_ROOT + '/proposerFinish'); }
+            location.assign($SCRIPT_ROOT + '/participantFinish'); }
     });
 }
 
