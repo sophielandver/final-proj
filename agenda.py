@@ -373,6 +373,26 @@ class Agenda:
         
         return total_free
     
+    @classmethod
+    def timeSpanAgenda(cls, begin_date, end_date, begin_time, end_time):
+        total_free = Agenda()
+        date = begin_date.date()
+        end_date = end_date.date()
+        while(date <= end_date):
+            fb_year = date.year
+            fb_month = date.month
+            fb_day = date.day
+            fb_begin = begin_time.replace(year=fb_year, month=fb_month, day=fb_day)
+            fb_end = end_time.replace(year=fb_year, month=fb_month, day=fb_day)
+            freeblock = Appt(fb_begin, fb_end, "Available")
+            
+            total_free.append(freeblock)
+            
+            begin_date = begin_date.replace(days=+1)
+            date = begin_date.date()
+        
+        return total_free
+    
       
 
     def __len__(self):

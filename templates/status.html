@@ -1,0 +1,85 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<html lang="en"> <head>
+<title>Appointments</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+
+<!-- jquery from a content distribution network; probably cached -->
+<script type="text/javascript"
+     src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.3/jquery.min.js">
+</script>
+    
+
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<link rel="stylesheet"
+ href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css"
+ integrity="sha384-1q8mTJOASx8j1Au+a5WDVnPi2lkFfwwEAa8hDDdjZlpLegxhjVME1fgjWPGmkzs7"
+  crossorigin="anonymous">
+<script
+src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/js/bootstrap.min.js"
+integrity="sha384-0mSbJDEHialfmuBBQP6A4Qrprq5OVfW37PRR3j5ELqxss1yVqOtnepnHVP9aJ7xS"
+crossorigin="anonymous">
+</script>
+    
+<link rel="stylesheet" type="text/css"
+     href="//cdn.jsdelivr.net/bootstrap/latest/css/bootstrap.css"
+/>
+    
+
+<link rel="stylesheet" type="text/css"
+    href="/static/css/busy.css"
+/>
+
+</head>
+
+<body>
+<div class="container">
+
+<h1>Current Status of Meeting</h1>
+
+<p>{{session.meeting_info1}}</p>
+<p>{{session.meeting_info2}}</p>
+
+<p></p>
+<p><b><u>Current Candidate (intersected) Meeting Times:</u></b></p>
+  <div class="col">
+  {% for time in session.display_intersected %}
+    <div class="row">
+        <div class="col-md-6">  
+            {{ time.display }}
+        </div>
+    </div>
+  {% endfor %}
+  </div>
+
+<br>
+<p><b><u>Responders:</u></b></p>
+  <div class="col">
+  {% for person in session.display_responders %}
+    <div class="row">
+        <div class="col-md-6">  
+            {{ person }}
+        </div>
+    </div>
+  {% endfor %}
+  </div>
+
+<br>
+<button onclick="BackToPartic()">Back</button>
+
+    
+
+  </div>  <!-- container (for bootstrap) -->
+  
+  
+<script>
+$SCRIPT_ROOT = {{ request.script_root|tojson|safe }};
+
+function BackToPartic(){
+    location.assign($SCRIPT_ROOT + '/backToPartic');
+}
+
+
+</script>
+
+  </body> </html>

@@ -351,7 +351,50 @@ def proposerFinish():
     flask.session['participant_url'] = url
     return render_template('index.html')
 
+@app.route('/status')
+def status():
+    createDisplayMeetingInfo()
+    createDisplayIntersectedTimes()
+    createDisplayResponders()
+    return render_template('status.html')
     
+@app.route('/backToPartic')
+def backToPartic():
+    return render_template('participant.html')
+
+
+def createDisplayIntersectedTimes():
+    for record in collection.find({ "type": "proposal", "_id": flask.session['proposal_id'] }):
+        free_times = record['free_times']
+    begin_date = arrow.get(flask.session['begin_date'])
+    end_date = arrow.get(flask.session['end_date'])
+    begin_time = arrow.get(flask.session['begin_time'])
+    end_time = arrow.get(flask.session['end_time'])
+    total = Agenda.timeSpanAgenda(begin_date, end_date, begin_time, end_time)
+    for apt_list in free_times:
+        agenda = Agenda.from_list(apt_list)
+        total = total.intersect(agenda, desc="Available")
+    total_list = total.to_list()
+    flask.session['display_intersected'] = createDisplayAptList(total_list)
+
+def createDisplayResponders():
+    for record in collection.find({ "type": "proposal", "_id": flask.session['proposal_id'] }):
+        responders = record['responders']
+    flask.session['display_responders'] = responders
+    
+def createDisplayMeetingInfo():
+    begin_date = arrow.get(flask.session['begin_date']).to('local')
+    begin_date = begin_date.format('MM/DD/YYYY')
+    end_date = arrow.get(flask.session['end_date']).to('local')
+    end_date = end_date.format('MM/DD/YYYY')
+    begin_time = arrow.get(flask.session['begin_time']).to('local')
+    begin_time = begin_time.format('h:mm A')
+    end_time = arrow.get(flask.session['end_time']).to('local')
+    end_time = end_time.format('h:mm A')
+    info_str1 = "Meeting date range is from " + begin_date + " to " + end_date + "."
+    info_str2 = "Meeting time range is from " + begin_time + " to " + end_time + "."  
+    flask.session['meeting_info1'] = info_str1
+    flask.session['meeting_info2'] = info_str2
 
 @app.route('/displayBusyFreeTimes')
 def displayBusyFreeTimes():
@@ -391,7 +434,7 @@ def createDisplayAptList(apt_list):
     display_apt_list = [] #list of dicts
     for apt in apt_list:
         info = {}
-        if apt['desc'] == "Available":
+        if "id" in apt and apt['desc'] == "Available":
             info['id'] = apt['id']
         info['desc'] = apt['desc']
         apt_str = ""
