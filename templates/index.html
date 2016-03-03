@@ -45,10 +45,10 @@ crossorigin="anonymous">
 />
 
 
-
 </head>
 
 <body>
+
 <div class="container">
 
 <h1>Meeting Scheduler</h1>
@@ -72,7 +72,8 @@ crossorigin="anonymous">
         <p>Please enter a date range:</p>
     </div>
     <div class="col-md-6">
-        <input type="text" name="daterange" size="12"
+        <input id= "datepicker123" type="text" name="daterange" size="12"
+        style="width: 12em;" 
         {% if session.daterange is defined %}
          value="{{session.daterange}}"
         {% endif %}
@@ -256,6 +257,8 @@ function EliminateCandidate(){
             location.assign($SCRIPT_ROOT + '/proposerFinish'); }
     });
 }
+
+
 
 
 </script>
