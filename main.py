@@ -75,7 +75,6 @@ def participant(proposal_id):
     return render_template('participant.html')
     
 
-
 @app.route("/choose")
 def choose():
     ## We'll need authorization to list calendars 
@@ -202,16 +201,6 @@ def oauth2callback():
     app.logger.debug("Got credentials")
     return flask.redirect(flask.url_for('choose'))
 
-#####
-#
-#  Option setting:  Buttons or forms that add some
-#     information into session state.  Don't do the
-#     computation here; use of the information might
-#     depend on what other information we have.
-#   Setting an option sends us back to the main display
-#      page, where we may put the new information to use. 
-#
-#####
 
 @app.route('/setParticName', methods=['POST'])
 def setParticName():
@@ -290,50 +279,6 @@ def eliminateCandidate():
         storeProposerInfoInDB()     
     return "nothing"
 
-def deleteCandidatesFromFree():
-    to_delete = flask.session['selected_candidates']
-    app.logger.debug(to_delete)
-    revised_free = []
-    for apt in flask.session['free_list']:
-        if apt['id'] not in to_delete:
-            revised_free.append(apt)
-    
-    flask.session['revised_free'] = revised_free
-    app.logger.debug(flask.session['revised_free'])
-
-def storeParticipantInfoInDB():
-    #store name of particpant and free times 
-    app.logger.debug(type(flask.session['proposal_id']))
-    collection.update({ "type": "proposal", "_id":flask.session['proposal_id'] }, {'$push': {'responders':flask.session['name']}})
-    collection.update({ "type": "proposal", "_id":flask.session['proposal_id'] }, {'$push': {'free_times':flask.session['revised_free']}})
- 
-    for record in collection.find():
-        app.logger.debug(record)
-    
-def storeProposerInfoInDB():
-    #store start date, end date, start time, end time, responders:[name], free_times = [free_list] in database AND grab
-    #the object id (on stack over flow saw how to do this) and save the object id in flask session object
-    #collection.remove({})
-    responders = []
-    responders.append(flask.session['name'])
-    free_times = []
-    free_times.append(flask.session['revised_free'])
-    proposal_id = str(ObjectId())
-    flask.session['proposal_id'] = proposal_id
-    record = { "type": "proposal",
-           "_id": proposal_id,
-           "start_date": flask.session['begin_date'], 
-           "end_date": flask.session['end_date'],
-           "start_time": flask.session['begin_time'],
-           "end_time": flask.session['end_time'],
-           "responders": responders,
-           "free_times": free_times
-          }
-    collection.insert(record) 
-    
-    for record in collection.find():
-        app.logger.debug(record)
-
 @app.route('/participantFinish')
 def participantFinish():
     flask.session['display_revised_free'] = createDisplayAptList(flask.session['revised_free'])
@@ -362,6 +307,25 @@ def status():
 def backToPartic():
     return render_template('participant.html')
 
+
+@app.route('/displayBusyFreeTimes')
+def displayBusyFreeTimes():
+    """
+    This function gets called once the busy and free times have been calculated and we are 
+    ready to display them to the user. This function displays the busy and free times to 
+    the user in sorted order by begin date/time.
+    """
+    createDisplayFreeBusyTimes()
+    if flask.session['is_participant'] == "True":
+        return render_template('participant.html')
+    else:
+        return render_template('index.html')
+        
+##############################################
+#
+# Functions for creating nice displayable formats 
+#
+##############################################
 
 def createDisplayIntersectedTimes():
     for record in collection.find({ "type": "proposal", "_id": flask.session['proposal_id'] }):
@@ -395,21 +359,6 @@ def createDisplayMeetingInfo():
     info_str2 = "Meeting time range is from " + begin_time + " to " + end_time + "."  
     flask.session['meeting_info1'] = info_str1
     flask.session['meeting_info2'] = info_str2
-
-@app.route('/displayBusyFreeTimes')
-def displayBusyFreeTimes():
-    """
-    This function gets called once the busy and free times have been calculated and we are 
-    ready to display them to the user. This function displays the busy and free times to 
-    the user in sorted order by begin date/time.
-    """
-    createDisplayFreeBusyTimes()
-    if flask.session['is_participant'] == "True":
-        return render_template('participant.html')
-    else:
-        return render_template('index.html')
-
-    
 
 def createDisplayFreeBusyTimes():
     """
@@ -445,6 +394,71 @@ def createDisplayAptList(apt_list):
         display_apt_list.append(info)
         
     return display_apt_list
+    
+def convertDisplayDateTime(date_time):
+    """
+    This function takes in an isoformat() string, makes it into an arrow object, converts it to the 
+    local time of the server, and then returns it as a formatted string for displaying in the
+    form MM/DD/YYYY h:mm A. We use this function every time before we want to display a time 
+    to the user.
+    """
+    arrow_date_time = arrow.get(date_time)
+    local_arrow = arrow_date_time.to('local')
+    formatted_str = local_arrow.format('MM/DD/YYYY h:mm A')
+    return formatted_str
+
+
+def list_calendars(service):
+    """
+    Given a google 'service' object, return a list of
+    calendars.  Each calendar is represented by a dict, so that
+    it can be stored in the session object and converted to
+    json for cookies. The returned list is sorted to have
+    the primary calendar first, and selected (that is, displayed in
+    Google Calendars web app) calendars before unselected calendars.
+    """
+    app.logger.debug("Entering list_calendars")  
+    calendar_list = service.calendarList().list().execute()["items"]
+    result = [ ]
+    for cal in calendar_list:
+        kind = cal["kind"]
+        id = cal["id"]
+        app.logger.debug("HERE IS CALENDAR ID: {}". format(id))
+        if "description" in cal: 
+            desc = cal["description"]
+        else:
+            desc = "(no description)"
+        summary = cal["summary"]
+        # Optional binary attributes with False as default
+        selected = ("selected" in cal) and cal["selected"]
+        primary = ("primary" in cal) and cal["primary"]
+        
+
+        result.append(
+          { "kind": kind,
+            "id": id,
+            "summary": summary,
+            "selected": selected,
+            "primary": primary
+            })
+    return sorted(result, key=cal_sort_key)
+
+
+def cal_sort_key( cal ):
+    """
+    Sort key for the list of calendars:  primary calendar first,
+    then other selected calendars, then unselected calendars.
+    (" " sorts before "X", and tuples are compared piecewise)
+    """
+    if cal["selected"]:
+       selected_key = " "
+    else:
+       selected_key = "X"
+    if cal["primary"]:
+       primary_key = " "
+    else:
+       primary_key = "X"
+    return (primary_key, selected_key, cal["summary"])
         
             
 
@@ -513,9 +527,52 @@ def next_day(isotext):
 
 ####
 #
-#  Functions (NOT pages) that return some information
+#  Functions  
 #
 ####
+def deleteCandidatesFromFree():
+    to_delete = flask.session['selected_candidates']
+    app.logger.debug(to_delete)
+    revised_free = []
+    for apt in flask.session['free_list']:
+        if apt['id'] not in to_delete:
+            revised_free.append(apt)
+    
+    flask.session['revised_free'] = revised_free
+    app.logger.debug(flask.session['revised_free'])
+
+def storeParticipantInfoInDB():
+    #store name of particpant and free times 
+    app.logger.debug(type(flask.session['proposal_id']))
+    collection.update({ "type": "proposal", "_id":flask.session['proposal_id'] }, {'$push': {'responders':flask.session['name']}})
+    collection.update({ "type": "proposal", "_id":flask.session['proposal_id'] }, {'$push': {'free_times':flask.session['revised_free']}})
+ 
+    for record in collection.find():
+        app.logger.debug(record)
+    
+def storeProposerInfoInDB():
+    #store start date, end date, start time, end time, responders:[name], free_times = [free_list] in database AND grab
+    #the object id (on stack over flow saw how to do this) and save the object id in flask session object
+    #collection.remove({})
+    responders = []
+    responders.append(flask.session['name'])
+    free_times = []
+    free_times.append(flask.session['revised_free'])
+    proposal_id = str(ObjectId())
+    flask.session['proposal_id'] = proposal_id
+    record = { "type": "proposal",
+           "_id": proposal_id,
+           "start_date": flask.session['begin_date'], 
+           "end_date": flask.session['end_date'],
+           "start_time": flask.session['begin_time'],
+           "end_time": flask.session['end_time'],
+           "responders": responders,
+           "free_times": free_times
+          }
+    collection.insert(record) 
+    
+    for record in collection.find():
+        app.logger.debug(record)
 
 def find_free():
     """
@@ -594,71 +651,6 @@ def overlap(event_sdt, event_edt):
     else:
         return True
 
-
-def convertDisplayDateTime(date_time):
-    """
-    This function takes in an isoformat() string, makes it into an arrow object, converts it to the 
-    local time of the server, and then returns it as a formatted string for displaying in the
-    form MM/DD/YYYY h:mm A. We use this function every time before we want to display a time 
-    to the user.
-    """
-    arrow_date_time = arrow.get(date_time)
-    local_arrow = arrow_date_time.to('local')
-    formatted_str = local_arrow.format('MM/DD/YYYY h:mm A')
-    return formatted_str
-
-
-def list_calendars(service):
-    """
-    Given a google 'service' object, return a list of
-    calendars.  Each calendar is represented by a dict, so that
-    it can be stored in the session object and converted to
-    json for cookies. The returned list is sorted to have
-    the primary calendar first, and selected (that is, displayed in
-    Google Calendars web app) calendars before unselected calendars.
-    """
-    app.logger.debug("Entering list_calendars")  
-    calendar_list = service.calendarList().list().execute()["items"]
-    result = [ ]
-    for cal in calendar_list:
-        kind = cal["kind"]
-        id = cal["id"]
-        app.logger.debug("HERE IS CALENDAR ID: {}". format(id))
-        if "description" in cal: 
-            desc = cal["description"]
-        else:
-            desc = "(no description)"
-        summary = cal["summary"]
-        # Optional binary attributes with False as default
-        selected = ("selected" in cal) and cal["selected"]
-        primary = ("primary" in cal) and cal["primary"]
-        
-
-        result.append(
-          { "kind": kind,
-            "id": id,
-            "summary": summary,
-            "selected": selected,
-            "primary": primary
-            })
-    return sorted(result, key=cal_sort_key)
-
-
-def cal_sort_key( cal ):
-    """
-    Sort key for the list of calendars:  primary calendar first,
-    then other selected calendars, then unselected calendars.
-    (" " sorts before "X", and tuples are compared piecewise)
-    """
-    if cal["selected"]:
-       selected_key = " "
-    else:
-       selected_key = "X"
-    if cal["primary"]:
-       primary_key = " "
-    else:
-       primary_key = "X"
-    return (primary_key, selected_key, cal["summary"])
 
 
 #################
