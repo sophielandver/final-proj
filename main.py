@@ -47,6 +47,20 @@ SCOPES = 'https://www.googleapis.com/auth/calendar.readonly'
 CLIENT_SECRET_FILE = CONFIG.GOOGLE_LICENSE_KEY  ## You'll need this
 APPLICATION_NAME = 'MeetMe class project'
 
+
+"""
+Format of flask.session['busy_list']:  (it's a list of dicts)
+[{"desc": "Gym", "being": '2016-03-22T13:45:00-08:00', "end": '2016-03-22T15:45:00-08:00'},
+ {"desc": "homework", "being": '2016-03-22T15:45:00-08:00', "end": '2016-03-22T18:45:00-08:00'},
+ ...]
+ 
+Format of flask.session['free_list']:   (it's a list of dicts)
+[{"desc": "Available", "being": '2016-05-22T13:45:00-08:00', "end": '2016-05-22T15:45:00-08:00', "id": 0},
+ {"desc": "Available", "being": '2016-06-22T15:45:00-08:00', "end": '2016-06-22T18:45:00-08:00', "id": 1},
+ ...]
+
+"""
+
 #############################
 #
 #  Pages (routed from URLs)
@@ -56,15 +70,28 @@ APPLICATION_NAME = 'MeetMe class project'
 @app.route("/")
 @app.route("/index")
 def index():
-  app.logger.debug("Entering index")
-  if 'begin_date' not in flask.session:
-    init_session_values()
-  return render_template('index.html')
+    """
+    The user has navigated to the proposer's page, i.e. the 
+    page where a meeting proposal is initiated. 
+    """
+    app.logger.debug("Entering index")
+    if 'begin_date' not in flask.session:
+        init_session_values()
+    return render_template('index.html')
   
   
 @app.route("/participant/<proposal_id>")
 def participant(proposal_id):
-    #assuming that there is a new session now
+    """
+    The user has navigated to the participant's page, i.e.
+    the page where a user responds to a meeting proposal that
+    was sent to him/her. We right away grab the proposal_id from 
+    the URL and use it to get the meeting's begin date, end date, 
+    begin time, and end time from the database. Then, we store the 
+    propsal_id, meeting begin date, end date, begin time, and end time
+    in the session object. In addition, we store the string "True" 
+    in flask.session['is_participant']. 
+    """
     flask.session['proposal_id'] = proposal_id
     flask.session['is_participant'] = "True"
     for record in collection.find( { "type": "proposal", "_id": flask.session['proposal_id'] } ):
@@ -204,6 +231,11 @@ def oauth2callback():
 
 @app.route('/setParticName', methods=['POST'])
 def setParticName():
+    """
+    The participant has entered in his/her name. We save this
+    name in the session object, for now, and then redirect the user 
+    to the calendar selection. 
+    """
     name = request.form.get('name')
     flask.session['name'] = name
     return flask.redirect(flask.url_for("choose"))
@@ -226,11 +258,6 @@ def setrange():
     starttime = request.form.get('starttime')
     endtime = request.form.get('endtime')
     name = request.form.get('name')
-    
-    app.logger.debug(starttime)
-    app.logger.debug(endtime)
-    app.logger.debug(name)
-    
     flask.session['name'] = name
     flask.session['daterange'] = daterange
     flask.session['text_beg_time'] = starttime
@@ -262,16 +289,21 @@ def calcBusyFreeTimes():
     """
     selected_cal = request.args.getlist("selected[]")
     flask.session['selected_cal'] = selected_cal
-    app.logger.debug(flask.session['selected_cal'])
     find_busy() #a list of dicts. Finds busy_list
     find_free() #a list of dicts. Finds free_list
     return "nothing"
     
 @app.route('/EliminateCandidate')  
 def eliminateCandidate():
+    """
+    The user has checked the "available" times in which he can meet 
+    and has pressed "submit". We obtain a revised free list by going 
+    through the current free_list and only keeping the available times
+    which the user has checked. Then, we store the user's information
+    in the database. 
+    """
     selected_candidates = request.args.getlist("selected[]")
     flask.session['selected_candidates'] = selected_candidates
-    app.logger.debug(flask.session['selected_candidates'])
     deleteCandidatesFromFree() #now we have revised_free
     if flask.session['is_participant'] == "True":
         storeParticipantInfoInDB()
@@ -281,11 +313,23 @@ def eliminateCandidate():
 
 @app.route('/participantFinish')
 def participantFinish():
+    """
+    We are done collecting and storing, in the database, all 
+    the needed information from the participant. Now we create a 
+    nice displayable list of free times and then render template participant.html.
+    """
     flask.session['display_revised_free'] = createDisplayAptList(flask.session['revised_free'])
     return render_template('participant.html')
 
 @app.route('/proposerFinish')
 def proposerFinish():
+    """
+    We are done collecting and storing, in the database, all 
+    the needed information from the proposer. Now we create a nice
+    displayable list of free times and the URL to give the proposer
+    so that he/she can give the URL to the people he/she wants to meet with.
+    Finally we render template index.html.
+    """
     #give free list to be displayed 
     #now render index.html cuz now have revised_free and proposal_id
     flask.session['display_revised_free'] = createDisplayAptList(flask.session['revised_free'])
@@ -298,6 +342,14 @@ def proposerFinish():
 
 @app.route('/status')
 def status():
+    """
+    The user has clicked the "show current meeting status" button in 
+    participant.html and now we collect the meeting info (i.e. the start date,
+    end date, start time, and end time of the meeting), the intersected free times
+    amongst all the people who have currently responded, and the names of all the 
+    people who have currently responded from the database. Finally we render
+    template status.html.
+    """
     createDisplayMeetingInfo()
     createDisplayIntersectedTimes()
     createDisplayResponders()
@@ -305,6 +357,10 @@ def status():
     
 @app.route('/backToPartic')
 def backToPartic():
+    """
+    The user has clicked the "back" button on status.html. 
+    We redirect the user back to participant.html. 
+    """
     return render_template('participant.html')
 
 
@@ -328,6 +384,11 @@ def displayBusyFreeTimes():
 ##############################################
 
 def createDisplayIntersectedTimes():
+    """
+    This function stores, in the session object, a nice 
+    displayable list of the intersected free times amongst 
+    all the current responders. 
+    """
     for record in collection.find({ "type": "proposal", "_id": flask.session['proposal_id'] }):
         free_times = record['free_times']
     begin_date = arrow.get(flask.session['begin_date'])
@@ -342,11 +403,20 @@ def createDisplayIntersectedTimes():
     flask.session['display_intersected'] = createDisplayAptList(total_list)
 
 def createDisplayResponders():
+    """
+    This function stores, in the session object, a displayable list 
+    of the names of all the current responders of this proposal. 
+    """
     for record in collection.find({ "type": "proposal", "_id": flask.session['proposal_id'] }):
         responders = record['responders']
     flask.session['display_responders'] = responders
     
 def createDisplayMeetingInfo():
+    """
+    This function stores, in the session object, a string containing 
+    the date range of the meeting and a string containing the time 
+    range of the proposed meeting. 
+    """
     begin_date = arrow.get(flask.session['begin_date']).to('local')
     begin_date = begin_date.format('MM/DD/YYYY')
     end_date = arrow.get(flask.session['end_date']).to('local')
@@ -362,8 +432,8 @@ def createDisplayMeetingInfo():
 
 def createDisplayFreeBusyTimes():
     """
-    This function puts together a list of strings for displaying the busy and free times in 
-    order by begin date/time. 
+    This function stores, in the session object, a list of strings for 
+    displaying the busy and free times in order by begin date/time. 
     """
     free_busy = []
     for busy_dict in flask.session['busy_list']:
@@ -378,7 +448,12 @@ def createDisplayFreeBusyTimes():
 def createDisplayAptList(apt_list):
     """
     This function takes in a list of appointments and returns a list of strings representing
-    the appointments, where the strings are suited for displaying the appointments to the user. 
+    the appointments, where the strings are suited for displaying. 
+    Arguments:
+        apt_list: a list of dictionaries either in the format of busy_list or in 
+                  the format of free_list 
+                  (see above for a detailed description of the format of busy_list and free_list)
+    Returns: a list of strings representing appointments. 
     """
     display_apt_list = [] #list of dicts
     for apt in apt_list:
@@ -401,9 +476,14 @@ def convertDisplayDateTime(date_time):
     local time of the server, and then returns it as a formatted string for displaying in the
     form MM/DD/YYYY h:mm A. We use this function every time before we want to display a time 
     to the user.
+    Arguments:
+        date_time: an isoformat string 
+    Returns: a string in the form 'MM/DD/YYYY h:mm A'
     """
     arrow_date_time = arrow.get(date_time)
+    app.logger.debug(arrow_date_time)
     local_arrow = arrow_date_time.to('local')
+    app.logger.debug(local_arrow)
     formatted_str = local_arrow.format('MM/DD/YYYY h:mm A')
     return formatted_str
 
@@ -531,28 +611,34 @@ def next_day(isotext):
 #
 ####
 def deleteCandidatesFromFree():
-    to_delete = flask.session['selected_candidates']
-    app.logger.debug(to_delete)
+    """
+    This function creates a revised list of free times which contains only the free
+    times with an id that is in flask.session['selected_candidates']. The revised
+    list of free times is stored in flask.session['revised_free']. 
+    """
+    to_keep = flask.session['selected_candidates']
     revised_free = []
     for apt in flask.session['free_list']:
-        if apt['id'] not in to_delete:
+        if apt['id'] in to_keep:
             revised_free.append(apt)
     
     flask.session['revised_free'] = revised_free
-    app.logger.debug(flask.session['revised_free'])
 
 def storeParticipantInfoInDB():
-    #store name of particpant and free times 
-    app.logger.debug(type(flask.session['proposal_id']))
+    """
+    This function stores the participant's name and the participant's free times 
+    in the database. 
+    """
     collection.update({ "type": "proposal", "_id":flask.session['proposal_id'] }, {'$push': {'responders':flask.session['name']}})
     collection.update({ "type": "proposal", "_id":flask.session['proposal_id'] }, {'$push': {'free_times':flask.session['revised_free']}})
- 
-    for record in collection.find():
-        app.logger.debug(record)
     
 def storeProposerInfoInDB():
-    #store start date, end date, start time, end time, responders:[name], free_times = [free_list] in database AND grab
-    #the object id (on stack over flow saw how to do this) and save the object id in flask session object
+    """
+    This function creates a random id to serve as the proposal id. 
+    It then stores this proposal id, proposed meeting's start date, end date, 
+    start time, end time, proposer's name, and proposer's free times in the database, 
+    all in one record.
+    """
     #collection.remove({})
     responders = []
     responders.append(flask.session['name'])
@@ -571,15 +657,13 @@ def storeProposerInfoInDB():
           }
     collection.insert(record) 
     
-    for record in collection.find():
-        app.logger.debug(record)
 
 def find_free():
     """
-    This function takes flask.session['busy_list'], flask.session['begin_date], flask.session['end_date'], 
-    flask.session['begin_time'], and flask.session['end_time'] and computes the free times in which the
-    user can meet within the date and time range and stores these free times in flask.session['free_list']
-    as a list of dictionaries.  
+    This function takes flask.session['busy_list'], flask.session['begin_date], 
+    flask.session['end_date'], flask.session['begin_time'], and flask.session['end_time'] 
+    and computes the free times in which the user can meet within the date and time 
+    range and stores these free times in flask.session['free_list'] as a list of dictionaries.  
     """
     busy_agenda = Agenda.from_list(flask.session['busy_list'])
         
@@ -597,8 +681,6 @@ def find_free():
     
     
     flask.session['free_list'] = free_list
-    app.logger.debug("HERE IS FREE_LIST")
-    app.logger.debug(flask.session['free_list'])
 
 
 def find_busy():
@@ -621,9 +703,7 @@ def find_busy():
             if overlap(start_datetime, end_datetime): 
                 event_dict = {"desc":event['summary'], "begin":start_datetime.isoformat(), "end":end_datetime.isoformat()}
                 busy_list.append(event_dict)
-    
-    app.logger.debug("HERE is busy list")
-    app.logger.debug(busy_list)
+                
     flask.session['busy_list'] = busy_list
 
 
@@ -631,6 +711,11 @@ def overlap(event_sdt, event_edt):
     """
     This function returns true IFF the inputed event overlaps the desired meeting 
     time and date range.
+    Arguments:
+        event_sdt: arrow object representing the event's start date and time 
+        event_edt: arrow object representing the event's end date and time 
+    Returns: true IFF the inputed event overlaps the desired meeting 
+    time and date range. 
     """
 #sdt = start date time 
 #edt = end date time 

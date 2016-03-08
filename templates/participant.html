@@ -81,12 +81,12 @@ crossorigin="anonymous">
 {% if session.display_free_busy is defined %}
 <p></p>
 <p><b><u>STEP 3: Optional Elimination of Candidate Meeting Times</u></b></p>
-<p>Please select the candidate times, if any, that you would like to eliminate:</p>
+<p>Please select the times out of the "available" times in which you are available:</p>
     {% for apt_dict in session.display_free_busy %}
         {% if apt_dict.desc == "Available" %}
         <div class="row">
             <div class="col-md-6">  
-                <input id="{{apt_dict.id}}" name="check2" type="checkbox" {% if apt_dict.id in session.selected_candidates|safe %} checked {% endif %} > {{ apt_dict.display }}
+                <input id="{{apt_dict.id}}" name="check2" type="checkbox" {%if session.selected_candidates is not defined %} checked {% elif apt_dict.id in session.selected_candidates|safe %} checked {% endif %} > {{ apt_dict.display }}
             </div>
         </div>
         {% else %}
