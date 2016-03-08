@@ -9,7 +9,7 @@ When the application is first run, the user sees the proposer's page. In this pa
 the user is directed through a series of steps in order to put together a meeting 
 proposal. The user enters his/her name, the date range for the desired meeting, and 
 the time range for the desired meeting. Then, if the user gives consent to use his/her google
-calendars, hes/she is prompted to select which google calendars he/she would like the app to use. 
+calendars, he/she is prompted to select which google calendars he/she would like the app to use. 
 At this point the "busy times" (defined below) and "free times" (defined below) are computed
 and the user now gets the option of further eliminating some of the free times; i.e. the user
 selects the times out of the free times in which he/she are actually available. Finally, 
@@ -25,9 +25,10 @@ can check the current meeting status and once he/she sees that everyone has resp
 look at the current intersected available times and pick a time, out of the listed times, to meet in 
 (since the listed times work for everyone). 
 <br>
-The functions used for the free time calculation can be found in agenda.py
-A thorough test suite for the free time calculations can be found in test_agenda.py 
+The functions used for the free time calculation can be found in agenda.py 
 <br>
+A thorough test suite for the free time calculations can be found in test_agenda.py 
+<br><br>
 Definitions:
 <br>
 busy times: all the appointments from the user's selected google calendars that lie within or 

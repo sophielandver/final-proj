@@ -264,6 +264,9 @@ def setrange():
     flask.session['text_end_time'] = endtime
     daterange_parts = daterange.split()
     flask.session['begin_date'] = interpret_date(daterange_parts[0])
+    
+    app.logger.debug(flask.session['begin_date'])
+    
     flask.session['end_date'] = interpret_date(daterange_parts[2])
     flask.session['begin_time'] = interpret_time(starttime)
     flask.session['end_time'] = interpret_time(endtime)
