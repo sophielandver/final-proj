@@ -484,9 +484,7 @@ def convertDisplayDateTime(date_time):
     Returns: a string in the form 'MM/DD/YYYY h:mm A'
     """
     arrow_date_time = arrow.get(date_time)
-    app.logger.debug(arrow_date_time)
     local_arrow = arrow_date_time.to('local')
-    app.logger.debug(local_arrow)
     formatted_str = local_arrow.format('MM/DD/YYYY h:mm A')
     return formatted_str
 
@@ -674,6 +672,7 @@ def find_free():
     span_end_date = arrow.get(flask.session['end_date'])
     span_begin_time = arrow.get(flask.session['begin_time'])
     span_end_time = arrow.get(flask.session['end_time'])
+    
     free_agenda = busy_agenda.complementTimeSpan(span_begin_date, span_end_date, span_begin_time, span_end_time)
     
     free_list = free_agenda.to_list()

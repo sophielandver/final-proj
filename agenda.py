@@ -5,6 +5,7 @@ An Agenda is a list-like container of Appt (appointment).
 import datetime
 import arrow
 import datetime
+from dateutil import tz  # For interpreting local times
 
 class Appt:
 
@@ -361,8 +362,8 @@ class Agenda:
             fb_year = date.year
             fb_month = date.month
             fb_day = date.day
-            fb_begin = begin_time.replace(year=fb_year, month=fb_month, day=fb_day)
-            fb_end = end_time.replace(year=fb_year, month=fb_month, day=fb_day)
+            fb_begin = begin_time.replace(year=fb_year, month=fb_month, day=fb_day).replace(tzinfo=tz.tzlocal())
+            fb_end = end_time.replace(year=fb_year, month=fb_month, day=fb_day).replace(tzinfo=tz.tzlocal())
             freeblock = Appt(fb_begin, fb_end, "Available")
             free_agenda = self.complement(freeblock)
             for apt in free_agenda:
@@ -382,8 +383,8 @@ class Agenda:
             fb_year = date.year
             fb_month = date.month
             fb_day = date.day
-            fb_begin = begin_time.replace(year=fb_year, month=fb_month, day=fb_day)
-            fb_end = end_time.replace(year=fb_year, month=fb_month, day=fb_day)
+            fb_begin = begin_time.replace(year=fb_year, month=fb_month, day=fb_day).replace(tzinfo=tz.tzlocal())
+            fb_end = end_time.replace(year=fb_year, month=fb_month, day=fb_day).replace(tzinfo=tz.tzlocal())
             freeblock = Appt(fb_begin, fb_end, "Available")
             
             total_free.append(freeblock)
