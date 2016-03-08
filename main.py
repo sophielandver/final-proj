@@ -640,7 +640,7 @@ def storeProposerInfoInDB():
     start time, end time, proposer's name, and proposer's free times in the database, 
     all in one record.
     """
-    collection.remove({})
+    #collection.remove({})
     responders = []
     responders.append(flask.session['name'])
     free_times = []
